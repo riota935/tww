@@ -121,8 +121,11 @@ BOOL daObjMmrr::Act_c::solidHeapCB(fopAc_ac_c* i_this) {
 
 /* 00000110-00000360       .text create_heap__Q29daObjMmrr5Act_cFv */
 BOOL daObjMmrr::Act_c::create_heap() {
+    J3DModelData* bdl_Mmrr;
+    J3DModelData* bdl_Yssmr00;
     dRes_info_c* resInfo;
-    J3DModelData* bdl_Mmrr = (J3DModelData*)dRes_control_c::getRes(
+
+    bdl_Mmrr = (J3DModelData*)dRes_control_c::getRes(
         M_arcname,
         9,
         resInfo = (dRes_info_c*)((u8*)&g_dComIfG_gameInfo + 0x1BFC0),
@@ -132,7 +135,7 @@ BOOL daObjMmrr::Act_c::create_heap() {
 
     mpModel = mDoExt_J3DModel__create(bdl_Mmrr, 0x80000, 0x11000222);
 
-    J3DModelData* bdl_Yssmr00 = (J3DModelData*)dRes_control_c::getRes(M_arcname, 0xB, resInfo, 0x40);
+    bdl_Yssmr00 = (J3DModelData*)dRes_control_c::getRes(M_arcname, 0xB, resInfo, 0x40);
     JUT_ASSERT(0x1F1, bdl_Yssmr00 != 0);
 
     mpModel2 = mDoExt_J3DModel__create(bdl_Yssmr00, 0x80000, 0x11000222);
@@ -147,11 +150,13 @@ BOOL daObjMmrr::Act_c::create_heap() {
 
     BOOL btkInit2 = mBtk2.init(bdl_Yssmr00, btk_Yssmr00, TRUE, 2, 1.0f, 0, -1, false, FALSE);
 
+    BOOL ret = FALSE;
+
     if (mpModel != NULL && mpModel2 != NULL && btkInit != 0 && btkInit2 != 0) {
-        return TRUE;
+        ret = TRUE;
     }
 
-    return FALSE;
+    return ret;
 }
 
 /* 00000360-00000434       .text init_cc__Q29daObjMmrr5Act_cFv */
@@ -218,46 +223,51 @@ void daObjMmrr::Act_c::set_cc_trans_pos() {
         cXyz transEnd;
         f32 radius;
     } sp;
+    const f32* attr2;
     Act_c* self = this;
 
     sp.end.x = *(f32*)((u8*)L_attr + 0x180);
     sp.end.y = *(f32*)((u8*)L_attr + 0x180);
-    sp.end.z = *(f32*)((u8*)L_attr + 0xD0);
+    attr2 = (const f32*)L_attr;
+    sp.end.z = attr2[0xD0 / sizeof(f32)];
 
     PSMTXTrans(mDoMtx_stack_c::now, self->current.pos.x, self->current.pos.y, self->current.pos.z);
     mDoMtx_ZXYrotM(mDoMtx_stack_c::now, self->shape_angle.x, self->shape_angle.y, self->shape_angle.z);
     mDoMtx_stack_c::transM(
-        *(f32*)((u8*)L_attr + 0xC0),
-        *(f32*)((u8*)L_attr + 0xC4),
-        *(f32*)((u8*)L_attr + 0xC8)
+        attr2[0xC0 / sizeof(f32)],
+        attr2[0xC4 / sizeof(f32)],
+        attr2[0xC8 / sizeof(f32)]
     );
 
     PSMTXMultVec(mDoMtx_stack_c::now, &cXyz::Zero, &sp.start);
     PSMTXMultVec(mDoMtx_stack_c::now, &sp.end, &sp.transEnd);
 
-    sp.radius = *(f32*)((u8*)L_attr + 0xCC);
+    sp.radius = attr2[0xCC / sizeof(f32)];
 
     dBgS_MirLightLinChk linChk;
-    linChk.Set(&sp.start, &sp.transEnd, self);
+    linChk.Set((cXyz*)((u8*)&sp + 0xC), &sp.transEnd, self);
 
     if (dComIfG_Bgsp()->LineCross(&linChk)) {
         sp.transEnd = linChk.GetCross();
     }
 
-    *(f32*)((u8*)&self->mCps + 0x118) = sp.start.x;
-    *(f32*)((u8*)&self->mCps + 0x11C) = sp.start.y;
-    *(f32*)((u8*)&self->mCps + 0x120) = sp.start.z;
-    *(f32*)((u8*)&self->mCps + 0x124) = sp.transEnd.x;
-    *(f32*)((u8*)&self->mCps + 0x128) = sp.transEnd.y;
-    *(f32*)((u8*)&self->mCps + 0x12C) = sp.transEnd.z;
+    cXyz* cpsStart = (cXyz*)((u8*)&self->mCps + 0x118);
+    cXyz* cpsEnd = (cXyz*)((u8*)cpsStart + 0xC);
+
+    cpsStart->x = sp.start.x;
+    cpsStart->y = sp.start.y;
+    cpsStart->z = sp.start.z;
+    cpsEnd->x = sp.transEnd.x;
+    cpsEnd->y = sp.transEnd.y;
+    cpsEnd->z = sp.transEnd.z;
     *(f32*)((u8*)&self->mCps + 0x134) = sp.radius;
 
     cXyz* atVec = (cXyz*)((u8*)&self->mCps + 0x7C);
-    PSVECSubtract((cXyz*)((u8*)&self->mCps + 0x124), (cXyz*)((u8*)&self->mCps + 0x118), atVec);
+    PSVECSubtract(cpsEnd, cpsStart, atVec);
     atVec->normalizeRS();
 
     cXyz tmp = sp.start;
-    self->mC00 = std::sqrtf(PSVECSquareDistance(&tmp, &sp.transEnd)) / *(f32*)((u8*)L_attr + 0xD0);
+    self->mC00 = std::sqrtf(PSVECSquareDistance(&tmp, &sp.transEnd)) / attr2[0xD0 / sizeof(f32)];
 }
 
 /* 00000F88-0000102C       .text set_cull__Q29daObjMmrr5Act_cFv */
